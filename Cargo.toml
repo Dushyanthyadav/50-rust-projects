@@ -3,5 +3,5 @@ resolver = "2"
 
 members = [
     "hello-world-01",
-    
+    "guessing-game-02", 
 ]
