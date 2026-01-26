@@ -53,6 +53,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "binary-search-tree-07"
+version = "0.1.0"
+dependencies = [
+ "text_io",
+]
+
+[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
