@@ -1424,6 +1424,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "simple-http-server-10"
+version = "0.1.0"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "simple-webscraper-09"
 version = "0.1.0"
 dependencies = [

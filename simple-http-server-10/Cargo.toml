@@ -1,0 +1,10 @@
+[package]
+name = "simple-http-server-10"
+version = "0.1.0"
+edition = "2024"
+authors = ["Dushyanth"]
+description = "A Toy HTTP server to for educational purporse."
+
+[dependencies]
+clap = { version = "4.5.55", features = ["derive"] }
+
