@@ -11,6 +11,24 @@ pub enum RespType {
     Null,
 }
 
+impl RespType {
+    pub fn serialize(&self) -> Vec<u8> {
+        match self {
+            RespType::SimpleString(s) => format!("+{}\r\n", s).into_bytes(),
+            RespType::Error(msg) => format!("-{}\r\n", msg).into_bytes(),
+            RespType::Integer(n) => format!(":{}\r\n", n).into_bytes(),
+            RespType::BulkString(data) => {
+                let mut out = format!("${}\r\n", data.len()).into_bytes();
+                out.extend_from_slice(data);
+                out.extend_from_slice(b"\r\n");
+                out
+            },
+            RespType::Null => b"$-1\r\n".to_vec(),
+            RespType::Array(_) => b"-ERR array serialization not supported\r\n".to_vec(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum RespError {
     InvalidProtocol,
@@ -374,5 +392,34 @@ mod test {
         let mut buffer = BytesMut::new();
         let result = decode(&mut buffer).unwrap();
         assert!(result.is_none());
+    }
+#[test]
+    fn test_serialize_simple_string() {
+        let resp = RespType::SimpleString("OK".to_string());
+        assert_eq!(resp.serialize(), b"+OK\r\n");
+    }
+
+    #[test]
+    fn test_serialize_bulk_string() {
+        let resp = RespType::BulkString(b"hello".to_vec());
+        assert_eq!(resp.serialize(), b"$5\r\nhello\r\n");
+    }
+
+    #[test]
+    fn test_serialize_integer() {
+        let resp = RespType::Integer(42);
+        assert_eq!(resp.serialize(), b":42\r\n");
+    }
+
+    #[test]
+    fn test_serialize_null() {
+        let resp = RespType::Null;
+        assert_eq!(resp.serialize(), b"$-1\r\n");
+    }
+
+    #[test]
+    fn test_serialize_error() {
+        let resp = RespType::Error("Error message".to_string());
+        assert_eq!(resp.serialize(), b"-Error message\r\n");
     }
 }
