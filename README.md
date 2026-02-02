@@ -2,7 +2,7 @@
 
 A personal journey to master the Rust programming language by building 50 projects, ranging from simple scripts to complex systems utilities.
 
-![Progress](https://img.shields.io/badge/Progress-11%2F50-orange) 
+![Progress](https://img.shields.io/badge/Progress-12%2F50-orange) 
 ## 📂 Project Structure
 
 This repository is organized as a **Cargo Workspace**. All projects share a single `target` directory to save disk space and compilation time.
