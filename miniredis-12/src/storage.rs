@@ -1,7 +1,6 @@
+use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use bytes::Bytes;
-
 
 #[derive(Clone)]
 pub struct Db {
@@ -15,7 +14,7 @@ impl Db {
         }
     }
 
-    pub fn set(&self, key:String, value: Bytes) {
+    pub fn set(&self, key: String, value: Bytes) {
         let mut state = self.shared.write().unwrap();
 
         state.insert(key, value);
@@ -69,7 +68,10 @@ mod tests {
         // Spawn a new thread that writes to the DB
         let handle = std::thread::spawn(move || {
             // Write a value from Thread B
-            db_clone.set("concurrent_key".to_string(), Bytes::from("hello_from_thread"));
+            db_clone.set(
+                "concurrent_key".to_string(),
+                Bytes::from("hello_from_thread"),
+            );
         });
 
         // Wait for the thread to finish writing

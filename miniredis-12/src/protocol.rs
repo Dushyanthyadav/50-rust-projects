@@ -22,7 +22,7 @@ impl RespType {
                 out.extend_from_slice(data);
                 out.extend_from_slice(b"\r\n");
                 out
-            },
+            }
             RespType::Null => b"$-1\r\n".to_vec(),
             RespType::Array(_) => b"-ERR array serialization not supported\r\n".to_vec(),
         }
@@ -45,7 +45,7 @@ pub fn decode(buff: &mut BytesMut) -> Result<Option<RespType>, RespError> {
     // warp the buff in cursor for position and reading
     let mut cursor = Cursor::new(&buff[..]);
 
-    // parse_next is the real parseing function 
+    // parse_next is the real parseing function
     // only the decode function can advance the buffer clearing the old frame
     match parse_next(&mut cursor) {
         Ok(Some(value)) => {
@@ -213,7 +213,7 @@ mod test {
             _ => panic!("Expected SimpleString('OK'), got {:?}", result),
         }
 
-       // verifying if buffer is 0 or not
+        // verifying if buffer is 0 or not
         assert_eq!(buffer.len(), 0);
     }
 
@@ -367,10 +367,9 @@ mod test {
             Some(RespType::SimpleString(s)) => assert_eq!(s, "OK"),
             _ => panic!("Expected OK, got {:?}", res1),
         }
-        
+
         assert_eq!(buffer.len(), 17); // +OK\r\n removed 
 
-        
         let res2 = decode(&mut buffer).unwrap();
         match res2 {
             Some(RespType::Integer(i)) => assert_eq!(i, 100),
@@ -378,7 +377,6 @@ mod test {
         }
         assert_eq!(buffer.len(), 11); // Removed :100\r\n (6 bytes)
 
-        
         let res3 = decode(&mut buffer).unwrap();
         match res3 {
             Some(RespType::BulkString(b)) => assert_eq!(b, b"hello"),
@@ -393,7 +391,7 @@ mod test {
         let result = decode(&mut buffer).unwrap();
         assert!(result.is_none());
     }
-#[test]
+    #[test]
     fn test_serialize_simple_string() {
         let resp = RespType::SimpleString("OK".to_string());
         assert_eq!(resp.serialize(), b"+OK\r\n");
