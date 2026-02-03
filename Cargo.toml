@@ -3,5 +3,5 @@ resolver = "2"
 
 members = [
     "hello-world-01",
-    "guessing-game-02", "todo-list-03", "temperature-converter-04", "word-counter-05", "linked-list-06", "binary-search-tree-07", "password-generator-08", "simple-webscraper-09", "simple-http-server-10", "minigrep-11", "miniredis-12", "markdown-to-html-13", 
+    "guessing-game-02", "todo-list-03", "temperature-converter-04", "word-counter-05", "linked-list-06", "binary-search-tree-07", "password-generator-08", "simple-webscraper-09", "simple-http-server-10", "minigrep-11", "miniredis-12", "markdown-to-html-13", "duplicate-file-finder-14", 
 ]

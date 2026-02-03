@@ -1,0 +1,12 @@
+[package]
+name = "duplicate-file-finder-14"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+blake3 = "1.8.3"
+clap = { version = "4.5.56", features = ["derive"] }
+indicatif = "0.18.3"
+jwalk = "0.8.1"
+rayon = "1.11.0"
+walkdir = "2.5.0"
