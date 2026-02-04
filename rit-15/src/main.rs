@@ -77,6 +77,13 @@ enum Commands {
         #[arg(default_value = "HEAD")]
         oid: String,
     },
+
+    /// Switch branches or restore working tree files
+    Checkout {
+        /// The commit or branch to switch to
+        target: String,
+    },
+
 }
 
 fn main() -> Result<()> {
@@ -115,7 +122,9 @@ fn main() -> Result<()> {
         Commands::Log { oid } => {
         commands::log(&oid)?;
     }
-
+        Commands::Checkout { target } => {
+        commands::checkout(&target)?;
+    }
     }
     Ok(())
 }

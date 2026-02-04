@@ -11,6 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::BufRead;
 use std::io::BufReader;
 use walkdir::WalkDir;
+use std::os::unix::fs::PermissionsExt; 
 
 pub const RIT_DIR: &str = ".rit";
 
@@ -462,3 +463,122 @@ pub fn log(oid: &str) -> Result<()> {
 
     Ok(())
 }
+
+
+pub fn checkout(target: &str) -> Result<()> {
+    // Resolve target: Is it a branch name (like 'main') or a Hash?
+    let refs_path = format!("{}/refs/heads/{}", RIT_DIR, target);
+    let mut commit_hash = target.to_string();
+    let mut new_head_content = format!("ref: refs/heads/{}\n", target);
+
+    if Path::new(&refs_path).exists() {
+        // It is a branch! Read the hash inside it.
+        commit_hash = fs::read_to_string(&refs_path)?.trim().to_string();
+    } else {
+        // It's likely a raw commit hash (Detached HEAD state)
+        // Verify object exists
+        let dir = &commit_hash[..2];
+        let file = &commit_hash[2..];
+        if !Path::new(&format!("{}/objects/{}/{}", RIT_DIR, dir, file)).exists() {
+            anyhow::bail!("Target '{}' does not exist.", target);
+        }
+        // In detached HEAD, HEAD contains the hash directly, not a ref: path
+        new_head_content = format!("{}\n", commit_hash);
+    }
+
+    // Read the Commit Object to find the Root Tree
+    let commit_content = read_object_content(&commit_hash)?;
+    // Content is "tree <hash>\nparent..."
+    // We parse the first line
+    let tree_line = commit_content.lines().next().ok_or(anyhow::anyhow!("Invalid commit"))?;
+    let tree_hash = tree_line.strip_prefix("tree ").ok_or(anyhow::anyhow!("Invalid commit format"))?;
+
+    // Clear current directory (Optional safety step)
+    // In a real git, this is complex. Here, we just overwrite files.
+    // Ideally, we would delete files that exist here but NOT in the new tree.
+    
+    // Restore the Tree recursively
+    restore_tree(tree_hash, Path::new("."))?;
+
+    //  Update HEAD
+    fs::write(format!("{}/HEAD", RIT_DIR), new_head_content)?;
+
+    println!("Switched to '{}'", target);
+    Ok(())
+}
+
+// Helper to read and decompress any object
+fn read_object_content(hash: &str) -> Result<String> {
+    let dir = &hash[..2];
+    let file = &hash[2..];
+    let path = format!("{}/objects/{}/{}", RIT_DIR, dir, file);
+    let f = fs::File::open(path)?;
+    let mut decoder = ZlibDecoder::new(f);
+    let mut buffer = Vec::new();
+    decoder.read_to_end(&mut buffer)?;
+    
+    // Split header and body
+    let null_index = buffer.iter().position(|&b| b == 0).unwrap();
+    let body = String::from_utf8_lossy(&buffer[null_index+1..]).to_string();
+    Ok(body)
+}
+
+// The Recursive Restorer
+fn restore_tree(tree_hash: &str, current_path: &Path) -> Result<()> {
+    // Get raw bytes of the tree object
+    // (We can't use read_object_content because trees contain raw binary SHAs, not text)
+    let dir = &tree_hash[..2];
+    let file = &tree_hash[2..];
+    let path = format!("{}/objects/{}/{}", RIT_DIR, dir, file);
+    
+    let f = fs::File::open(path)?;
+    let mut decoder = ZlibDecoder::new(f);
+    let mut buffer = Vec::new();
+    decoder.read_to_end(&mut buffer)?;
+    
+    // Skip header "tree <size>\0"
+    let null_index = buffer.iter().position(|&b| b == 0).unwrap();
+    let mut body = &buffer[null_index+1..];
+
+    // Parse entries loop
+    while !body.is_empty() {
+        // Format: [mode] [space] [name] [null] [20 bytes sha]
+        
+        // Find null byte after mode/name
+        let null_idx = body.iter().position(|&b| b == 0).unwrap();
+        let mode_name = std::str::from_utf8(&body[..null_idx])?;
+        let (mode, name) = mode_name.split_once(' ').unwrap();
+        
+        // Advance past null byte
+        body = &body[null_idx + 1..];
+        
+        // Read 20 bytes for SHA
+        let sha_bytes = &body[..20];
+        let sha_hex = hex::encode(sha_bytes);
+        body = &body[20..]; // Advance for next iteration
+
+        let entry_path = current_path.join(name);
+
+        if mode == "40000" {
+            // It's a directory
+            if !entry_path.exists() {
+                fs::create_dir(&entry_path)?;
+            }
+            restore_tree(&sha_hex, &entry_path)?;
+        } else {
+            // It's a file (blob)
+            // Read the blob content
+            // We reuse our text reader, assuming files are text. 
+            // For binary files, you'd need a Vec<u8> version.
+            let content = read_object_content(&sha_hex)?;
+            fs::write(&entry_path, content)?;
+            
+            // Optional: Set executable permissions if mode is 100755
+            // if mode == "100755" { ... }
+        }
+    }
+    
+    Ok(())
+}
+
+
