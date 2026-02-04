@@ -58,6 +58,11 @@ enum Commands {
         /// The new commit hash
         oid: String,
     },
+    
+    /// Add a file to the staging area
+    Add {
+        file: String
+    },
 
 }
 
@@ -87,6 +92,9 @@ fn main() -> Result<()> {
     }
         Commands::UpdateRef { ref_name, oid } => {
         commands::update_ref(&ref_name, &oid)?;
+    }
+        Commands::Add { file } => {
+        commands::add(&file)?;
     }
 
     }
