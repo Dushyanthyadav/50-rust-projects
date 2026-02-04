@@ -64,6 +64,14 @@ enum Commands {
         file: String
     },
 
+    /// Record changes to the repository
+    Commit {
+        /// The commit message
+        #[arg(short = 'm')]
+        message: String,
+    }, 
+
+
 }
 
 fn main() -> Result<()> {
@@ -95,6 +103,9 @@ fn main() -> Result<()> {
     }
         Commands::Add { file } => {
         commands::add(&file)?;
+    }
+        Commands::Commit { message } => {
+        commands::commit(&message)?;
     }
 
     }

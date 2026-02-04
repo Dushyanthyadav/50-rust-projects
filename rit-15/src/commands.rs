@@ -318,3 +318,35 @@ pub fn add(file_path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn commit(message: &str) -> Result<()> {
+    // Create the Tree from the Index
+    // (This uses your new filtered write_tree logic)
+    let tree_hash = write_tree(".")?;
+    
+    // Find the Parent Commit (if it exists)
+    let head_path = format!("{}/HEAD", RIT_DIR);
+    let head_content = fs::read_to_string(&head_path)?;
+    // head_content is "ref: refs/heads/main\n"
+    
+    let ref_path_str = head_content.trim().strip_prefix("ref: ").unwrap_or(head_content.trim());
+    let full_ref_path = format!("{}/{}", RIT_DIR, ref_path_str);
+    
+    let parent_hash = if Path::new(&full_ref_path).exists() {
+        // If refs/heads/main exists, read the hash inside it
+        Some(fs::read_to_string(full_ref_path)?.trim().to_string())
+    } else {
+        // If it doesn't exist, this is the FIRST commit (Root commit)
+        None
+    };
+    
+    // Create the Commit Object
+    // We pass parent_hash.as_deref() to convert Option<String> to Option<&str>
+    let commit_hash = commit_tree(&tree_hash, parent_hash.as_deref(), message)?;
+    
+    // Update the Reference (Move the branch pointer)
+    update_ref(ref_path_str, &commit_hash)?;
+    
+    println!("[{}] {}", &commit_hash[..7], message);
+    Ok(())
+}
+
