@@ -10,6 +10,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::io::BufRead;
 use std::io::BufReader;
+use walkdir::WalkDir;
 
 pub const RIT_DIR: &str = ".rit";
 
@@ -285,39 +286,71 @@ pub fn update_ref(ref_name: &str, oid: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn add(file_path: &str) -> Result<()> {
-    let hash = hash_object(file_path, true)?;
+// The public entry point
+pub fn add(path: &str) -> Result<()> {
+    // Check if the path exists and what type it is
+    let metadata = fs::metadata(path)?;
 
+    if metadata.is_dir() {
+        // If it's a directory (like "."), walk through it recursively
+        for entry in WalkDir::new(path) {
+            let entry = entry?;
+            let entry_path = entry.path();
+            
+            // We only want to add files, not sub-directories themselves
+            if entry_path.is_file() {
+                let path_str = entry_path.to_str().unwrap();
+                
+                // IMPORTANT: Do not add the .rit folder itself!
+                // We check if the path string contains our hidden dir name
+                if path_str.contains(RIT_DIR) || path_str.contains(".git") {
+                    continue;
+                }
+
+                // Call the actual logic
+                add_file(path_str)?;
+            }
+        }
+    } else {
+        // If it's just a single file, add it directly
+        add_file(path)?;
+    }
+    
+    Ok(())
+}
+
+fn add_file(file_path: &str) -> Result<()> {
+    let hash = hash_object(file_path, true)?;
+    
     let index_path = format!("{}/index", RIT_DIR);
     let mut index_map = HashMap::new();
-
+    
     if Path::new(&index_path).exists() {
         let file = fs::File::open(&index_path)?;
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let line = line?;
-            // format: "path hash"
             if let Some((path, h)) = line.split_once(' ') {
                 index_map.insert(path.to_string(), h.to_string());
             }
         }
     }
-
+    
+    // Clean path (remove ./ prefix)
     let clean_path = file_path.trim_start_matches("./");
     index_map.insert(clean_path.to_string(), hash);
-
+    
     let mut file = fs::File::create(&index_path)?;
-    let mut entries:Vec<_> = index_map.iter().collect();
+    let mut entries: Vec<_> = index_map.iter().collect();
     entries.sort_by_key(|(path, _)| *path);
-
+    
     for (path, hash) in entries {
         writeln!(file, "{} {}", path, hash)?;
     }
-
-    println!("Added '{}' ", clean_path);
+    
+    println!("Added '{}'", clean_path);
     Ok(())
 }
-
 pub fn commit(message: &str) -> Result<()> {
     // Create the Tree from the Index
     // (This uses your new filtered write_tree logic)
@@ -350,3 +383,82 @@ pub fn commit(message: &str) -> Result<()> {
     Ok(())
 }
 
+// Make sure you have these imports
+pub fn log(oid: &str) -> Result<()> {
+    // Resolve the starting commit hash
+    let mut current_hash = oid.to_string();
+
+    // If the user didn't pass a specific hash, look up where HEAD points
+    if current_hash == "HEAD" {
+        let head_path = format!("{}/HEAD", RIT_DIR);
+        let head_content = fs::read_to_string(&head_path)?;
+        // head_content is like "ref: refs/heads/main\n"
+        let ref_path_str = head_content.trim().strip_prefix("ref: ").unwrap_or(head_content.trim());
+        let full_ref_path = format!("{}/{}", RIT_DIR, ref_path_str);
+
+        if Path::new(&full_ref_path).exists() {
+            current_hash = fs::read_to_string(full_ref_path)?.trim().to_string();
+        } else {
+            anyhow::bail!("HEAD points to '{}', which does not exist yet. Make a commit first!", ref_path_str);
+        }
+    }
+
+    //  Walk the graph backwards
+    println!("Printing history for commit: {}\n", current_hash);
+
+    loop {
+        // Read the commit object
+        let dir_name = &current_hash[..2];
+        let file_name = &current_hash[2..];
+        let object_path = format!("{}/objects/{}/{}", RIT_DIR, dir_name, file_name);
+        
+        let file = fs::File::open(&object_path).map_err(|_| anyhow::anyhow!("Commit object {} missing", current_hash))?;
+        let mut decoder = ZlibDecoder::new(file);
+        let mut contents = Vec::new();
+        decoder.read_to_end(&mut contents)?;
+
+        // Split header from body (commit <size>\0<body>)
+        let null_index = contents.iter().position(|&b| b == 0).unwrap();
+        let body_bytes = &contents[null_index + 1..];
+        let body = String::from_utf8_lossy(body_bytes);
+
+        //  Parse the commit body to find metadata
+        let mut parent = None;
+        let mut author = String::from("(unknown)");
+        let mut message = String::new();
+        
+        // We split by lines. The message is separated by an empty line.
+        let mut parsing_headers = true;
+
+        for line in body.lines() {
+            if parsing_headers {
+                if line.is_empty() {
+                    parsing_headers = false;
+                } else if line.starts_with("parent ") {
+                    parent = Some(line["parent ".len()..].to_string());
+                } else if line.starts_with("author ") {
+                    author = line["author ".len()..].to_string();
+                }
+            } else {
+                // Collect the message
+                message.push_str(line);
+                message.push('\n');
+            }
+        }
+
+        // Pretty print the commit info
+        // \x1b[33m makes the hash yellow in the terminal
+        println!("\x1b[33mcommit {}\x1b[0m", current_hash);
+        println!("Author: {}", author);
+        println!("\n    {}", message.trim());
+        println!("{}", "-".repeat(50));
+
+        // Move to parent or stop
+        match parent {
+            Some(p) => current_hash = p,
+            None => break, // Reached the root commit
+        }
+    }
+
+    Ok(())
+}

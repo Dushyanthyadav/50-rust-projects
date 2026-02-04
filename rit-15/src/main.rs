@@ -71,7 +71,12 @@ enum Commands {
         message: String,
     }, 
 
-
+    /// Show commit logs
+    Log {
+        /// The commit hash to start from (defaults to HEAD)
+        #[arg(default_value = "HEAD")]
+        oid: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -106,6 +111,9 @@ fn main() -> Result<()> {
     }
         Commands::Commit { message } => {
         commands::commit(&message)?;
+    }
+        Commands::Log { oid } => {
+        commands::log(&oid)?;
     }
 
     }
