@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 mod commands;
 
@@ -15,6 +15,16 @@ struct Cli {
 enum Commands {
     /// Initialize a new rit repository
     Init,
+
+    /// Compute object ID and optionlly create blob a blob from a file
+    HashObject {
+        /// The file to hash
+        file: String,
+
+        /// Actually write the object into the database
+        #[arg(short = 'w', long)]
+        write: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -24,9 +34,9 @@ fn main() -> Result<()> {
         Commands::Init => {
             commands::init()?;
         }
+        Commands::HashObject { file, write } => {
+            commands::hash_object(&file, write)?;
+        }
     }
     Ok(())
 }
-
-
-
