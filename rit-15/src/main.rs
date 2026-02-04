@@ -34,6 +34,8 @@ enum Commands {
         /// The object hash to read
         object_hash: String,
     },
+
+    WriteTree,
 }
 
 fn main() -> Result<()> {
@@ -44,10 +46,17 @@ fn main() -> Result<()> {
             commands::init()?;
         }
         Commands::HashObject { file, write } => {
-            commands::hash_object(&file, write)?;
+            let hash = commands::hash_object(&file, write)?;
+            if !write {
+                println!("{hash}");
+            }
         }
         Commands::CatFile { pretty_print, object_hash } => {
             commands::cat_file(&object_hash, pretty_print)?;
+        }
+        Commands::WriteTree => {
+            let tree_hash = commands::write_tree(".")?;
+            println!("{}", tree_hash);
         }
     }
     Ok(())
