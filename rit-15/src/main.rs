@@ -50,6 +50,15 @@ enum Commands {
         message: String,
     },
 
+    /// Update the object name stored in a ref safely
+    UpdateRef {
+        /// The ref to update (e.g., refs/heads/main)
+        ref_name: String,
+
+        /// The new commit hash
+        oid: String,
+    },
+
 }
 
 fn main() -> Result<()> {
@@ -75,6 +84,9 @@ fn main() -> Result<()> {
         Commands::CommitTree { tree_hash, parent_hash, message } => {
         let commit_hash = commands::commit_tree(&tree_hash, parent_hash.as_deref(), &message)?;
         println!("{}", commit_hash);
+    }
+        Commands::UpdateRef { ref_name, oid } => {
+        commands::update_ref(&ref_name, &oid)?;
     }
 
     }

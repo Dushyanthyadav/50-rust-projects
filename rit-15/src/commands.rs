@@ -239,7 +239,23 @@ pub fn commit_tree(tree_hash: &str, parent_hash: Option<&str>, message: &str) ->
     Ok(commit_hash)
 }
 
+pub fn update_ref(ref_name: &str, oid: &str) -> Result<()> {
+    // ref_name will be something like "refs/heads/main"
+    let ref_path = format!("{}/{}", RIT_DIR, ref_name);
+    
+    let path_obj = Path::new(&ref_path);
+    if let Some(parent) = path_obj.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
 
+    // We add a newline because Git creates refs with a trailing newline
+    fs::write(&ref_path, format!("{}\n", oid))?;
+    
+    println!("Updated {} to {}", ref_name, oid);
+    Ok(())
+}
 
 
 
