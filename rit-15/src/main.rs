@@ -25,6 +25,15 @@ enum Commands {
         #[arg(short = 'w', long)]
         write: bool,
     },
+
+    CatFile {
+        /// Pretty-print the contents
+        #[arg(short = 'p')]
+        pretty_print: bool,
+
+        /// The object hash to read
+        object_hash: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -36,6 +45,9 @@ fn main() -> Result<()> {
         }
         Commands::HashObject { file, write } => {
             commands::hash_object(&file, write)?;
+        }
+        Commands::CatFile { pretty_print, object_hash } => {
+            commands::cat_file(&object_hash, pretty_print)?;
         }
     }
     Ok(())
