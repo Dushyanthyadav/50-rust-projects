@@ -6,6 +6,7 @@ use sha1::{Digest, Sha1};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const RIT_DIR: &str = ".rit";
 
@@ -31,7 +32,7 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
-pub fn hash_object(file_path: &str, write: bool) -> Result<(String)> {
+pub fn hash_object(file_path: &str, write: bool) -> Result<String> {
     let content = fs::read(file_path)?;
 
     let header = format!("blob {}\0", content.len());
@@ -182,7 +183,61 @@ pub fn write_tree(path: &str) -> Result<String> {
     Ok(tree_hash)
 }
 
+pub fn commit_tree(tree_hash: &str, parent_hash: Option<&str>, message: &str) -> Result<String> {
+    let mut body = String::new();
+    
+    //  Add Tree
+    body.push_str(&format!("tree {}\n", tree_hash));
+    
+    // Add Parent (if it exists)
+    if let Some(parent) = parent_hash {
+        body.push_str(&format!("parent {}\n", parent));
+    }
+    
+    //  Add Author/Committer (Using current time)
+    let start = SystemTime::now();
+    let since_the_epoch = start.duration_since(UNIX_EPOCH)?;
+    let timestamp = since_the_epoch.as_secs();
+    
+    let author_string = format!("author Rit User <rit@example.com> {} +0000\n", timestamp);
+    let committer_string = format!("committer Rit User <rit@example.com> {} +0000\n", timestamp);
+    
+    body.push_str(&author_string);
+    body.push_str(&committer_string);
+    
+    // Add Message (preceded by an empty line)
+    body.push_str("\n");
+    body.push_str(message);
+    body.push_str("\n"); // Git usually ends with a newline
 
+    //  Create the object header + body
+    let header = format!("commit {}\0", body.len());
+    let mut store = header.into_bytes();
+    store.extend(body.as_bytes());
+
+    //  Hash and Save (Standard logic)
+    let mut hasher = Sha1::new();
+    hasher.update(&store);
+    let result = hasher.finalize();
+    let commit_hash = hex::encode(result);
+
+    // Write to disk
+    let dir_name = &commit_hash[..2];
+    let file_name = &commit_hash[2..];
+    let object_dir = format!("{}/objects/{}", RIT_DIR, dir_name);
+    let object_path = format!("{}/{}", object_dir, file_name);
+
+    if !Path::new(&object_dir).exists() {
+        fs::create_dir(&object_dir)?;
+    }
+    
+    let file = fs::File::create(&object_path)?;
+    let mut encoder = ZlibEncoder::new(file, Compression::default());
+    encoder.write_all(&store)?;
+    encoder.finish()?;
+
+    Ok(commit_hash)
+}
 
 
 
