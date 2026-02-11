@@ -1129,6 +1129,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "music-visualizer-16"
+version = "0.1.0"
+
+[[package]]
 name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
